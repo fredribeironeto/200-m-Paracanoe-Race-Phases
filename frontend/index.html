@@ -1,0 +1,251 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Paracanoe Race Phases Analyzer (Public Edition)</title>
+    <link rel="stylesheet" href="./style.css?v=2">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;800&display=swap" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/exceljs/4.3.0/exceljs.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/FileSaver.js/2.0.5/FileSaver.min.js"></script>
+  </head>
+  <body>
+    <div class="app-container">
+      
+      <!-- Premium Glassmorphic Header Banner -->
+      <header class="app-header">
+        <div class="header-logo">
+          <span>🛶</span>
+        </div>
+        <div class="header-titles">
+          <h1>PARACANOE <span>PACING ANALYTICS</span></h1>
+          <p>Open Access Race Phases Analysis Platform • Analisador de Pacing (Acesso Público)</p>
+        </div>
+      </header>
+
+      <main class="main-content">
+        <!-- Pure Quick Analysis View -->
+        <div id="view-quick" class="tab-view">
+          <section class="upload-section" id="upload-section">
+            <div class="landing-grid">
+              
+              <!-- Left side: Drop Zone -->
+              <div class="drop-zone" id="drop-zone">
+                <div class="icon">📊</div>
+                <p>Drag and drop <strong>up to three</strong> Excel or CSV files here to analyze and compare</p>
+                <p class="sub-text">or click to browse (.xlsx, .xls, .csv)</p>
+                <div style="margin: 1rem 0; display: flex; align-items: center; justify-content: center; gap: 0.5rem; color: var(--text-secondary);">
+                    <input type="checkbox" id="manual-filter-toggle" checked style="width: 18px; height: 18px; cursor: pointer;">
+                    <label for="manual-filter-toggle" style="cursor: pointer; font-size: 0.95rem;">Manual segment selection (for CSV files)</label>
+                </div>
+                <input type="file" id="file-input" multiple accept=".xlsx, .xls, .csv" hidden>
+                <button class="btn-primary" id="browse-btn">Browse Files</button>
+              </div>
+
+              <!-- Right side: Scientific Quick Guide -->
+              <div class="quick-guide-panel">
+                <h3>💡 Guia de Análise / Scientific Guide</h3>
+                <div class="guide-scrollable">
+                  <div class="guide-item">
+                    <span class="guide-icon">📈</span>
+                    <div class="guide-text">
+                      <h5>Regressão Segmentada / Piecewise Linear</h5>
+                      <p>O algoritmo detecta matematicamente os pontos exatos de transição de velocidade (breakpoints) para dividir a prova em fases de pacing distintas.</p>
+                    </div>
+                  </div>
+                  <div class="guide-item">
+                    <span class="guide-icon">⚡</span>
+                    <div class="guide-text">
+                      <h5>Protocolos de Pacing / Phase Protocols</h5>
+                      <p>Analise a distribuição de esforço em 2 fases (Aceleração e Manutenção), 3 fases ou 4 fases (Aceleração, Pico, Desaceleração e Sprint Final).</p>
+                    </div>
+                  </div>
+                  <div class="guide-item">
+                    <span class="guide-icon">📊</span>
+                    <div class="guide-text">
+                      <h5>Comparação Temporal / Multi-Test Tracking</h5>
+                      <p>Carregue até 3 arquivos simultaneamente para visualizar curvas de velocidade sobrepostas e tabelas comparativas na mesma tela.</p>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+            </div>
+            
+            <div class="loading" id="loading" style="display: none;">
+              <div class="spinner"></div>
+              <p id="loading-text">Analyzing race data...</p>
+            </div>
+          </section>
+
+          <!-- Preview Modal for CSV Manual Filtering -->
+          <div id="preview-modal" class="modal" style="display: none;">
+            <div class="modal-content">
+              <header class="modal-header">
+                <h2>Select 200m Race Segment</h2>
+                <p>Zoom in and click to set the <strong>Start</strong> and <strong>End</strong> points. ⌨️ <strong>Dica / Tip:</strong> Selecione um campo de distância e use as setas <strong>Esquerda / Direita</strong> do teclado para ajuste fino.</p>
+              </header>
+              <div class="preview-chart-container" style="height: 400px; margin: 1.5rem 0; position: relative;">
+                <canvas id="preview-chart"></canvas>
+              </div>
+              <div class="preview-controls" style="display: flex; gap: 1.5rem; justify-content: center; align-items: center; margin-bottom: 1.5rem; background: var(--panel-bg); padding: 1rem; border-radius: 8px; flex-wrap: wrap;">
+                <div class="control-group" id="start-control-group" style="display: flex; align-items: center; gap: 0.5rem; border: 1px solid transparent; padding: 0.35rem 0.6rem; border-radius: 8px; transition: all 0.3s ease;">
+                  <label style="font-weight: 600;">Início / Start (m):</label>
+                  <input type="number" id="manual-start-input" step="0.1" style="width: 90px;">
+                  <span style="font-size: 0.85rem; color: var(--accent); white-space: nowrap;">(Vel: <strong id="start-vel-display">0.00</strong> m/s)</span>
+                </div>
+                <div class="control-group" style="gap: 0.4rem;">
+                  <button id="auto-200-btn" class="btn-secondary" style="padding: 0.5rem 0.8rem; font-size: 0.85rem; background: rgba(0, 229, 255, 0.1); border-color: rgba(0, 229, 255, 0.3); color: var(--accent); cursor: pointer;">+200m</button>
+                </div>
+                <div class="control-group" id="end-control-group" style="display: flex; align-items: center; gap: 0.5rem; border: 1px solid transparent; padding: 0.35rem 0.6rem; border-radius: 8px; transition: all 0.3s ease;">
+                  <label style="font-weight: 600;">Fim / End (m):</label>
+                  <input type="number" id="manual-end-input" step="0.1" style="width: 90px;">
+                  <span style="font-size: 0.85rem; color: var(--accent); white-space: nowrap;">(Vel: <strong id="end-vel-display">0.00</strong> m/s)</span>
+                </div>
+                <div class="control-group" style="display: flex; align-items: center; gap: 0.4rem;">
+                  <input type="checkbox" id="lock-200-checkbox" checked style="width: 16px; height: 16px; cursor: pointer;">
+                  <label for="lock-200-checkbox" style="cursor: pointer; font-size: 0.9rem; color: var(--text-secondary); font-weight: 600;">Auto +200m (Lock)</label>
+                </div>
+                <div class="control-group" style="color: var(--text-secondary); border-left: 1px solid var(--panel-border); padding-left: 1.2rem; display: flex; flex-direction: column; align-items: flex-start; gap: 0.2rem;">
+                  <span style="font-size: 0.85rem;">Dist. Selecionada / Selected:</span>
+                  <span><strong id="selected-dist-display" style="color: #fff; font-size: 1.1rem;">0</strong> m</span>
+                </div>
+                <div class="control-group" style="color: var(--text-secondary); border-left: 1px solid var(--panel-border); padding-left: 1.2rem; display: flex; flex-direction: column; align-items: flex-start; gap: 0.2rem;">
+                  <span style="font-size: 0.85rem; color: var(--accent);">Tempo Segmento / Segment Time:</span>
+                  <span><strong id="selected-time-display" style="color: var(--accent); font-size: 1.1rem;">0.0</strong> s</span>
+                </div>
+                <div class="control-group" style="color: var(--text-secondary); border-left: 1px solid var(--panel-border); padding-left: 1.2rem; display: flex; flex-direction: column; align-items: flex-start; gap: 0.2rem;">
+                  <span style="font-size: 0.85rem;">Tempo Total Coleta / Total Collection:</span>
+                  <span><strong id="total-time-display" style="color: #fff; font-size: 1.1rem;">0.0</strong> s</span>
+                </div>
+              </div>
+              <div class="modal-actions" style="display: flex; gap: 1rem; justify-content: flex-end;">
+                <button class="btn-secondary" id="cancel-preview-btn">Cancel</button>
+                <button class="btn-primary" id="confirm-preview-btn">Confirm & Analyze</button>
+              </div>
+            </div>
+          </div>
+
+          <section class="results-section" id="results-section" style="display: none;">
+            <div class="actions">
+              <button class="btn-secondary" id="reset-btn">← Analyze New Files</button>
+              <div style="display: flex; gap: 1rem; align-items: center;">
+                <button class="btn-primary" id="export-btn" style="padding: 0.5rem 1rem; font-size: 0.9rem; display: flex; align-items: center; gap: 0.5rem;">
+                  <span style="font-size: 1.1rem;">📥</span> Export to Excel
+                </button>
+                <div class="tabs" id="phase-tabs">
+                  <button class="tab" data-phase="2_phase">2 Phases</button>
+                  <button class="tab" data-phase="3_phase">3 Phases</button>
+                  <button class="tab active" data-phase="4_phase">4 Phases</button>
+                </div>
+              </div>
+            </div>
+
+            <!-- Multi-Test Comparison Table Container -->
+            <div id="quick-comparison-table-container" style="display: none; margin-bottom: 1.5rem;"></div>
+
+            <!-- Comparison Wrapper: Will hold athlete card results -->
+            <div class="comparison-wrapper" id="comparison-wrapper">
+              <!-- Dynamic content injected by JS -->
+            </div>
+          </section>
+        </div>
+      </main>
+    </div>
+
+    <!-- Template for Athlete Card -->
+    <template id="athlete-card-template">
+      <div class="athlete-card">
+        <div class="athlete-header" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem;">
+          <h2 class="athlete-name" style="margin: 0; font-size: 1.25rem;"></h2>
+          <div style="display: flex; gap: 0.5rem; align-items: center;">
+            <div class="r2-badge">R²: <span class="r2-value"></span></div>
+          </div>
+        </div>
+
+        <div class="card-tabs" style="display: flex; background: rgba(255,255,255,0.03); padding: 0.2rem; border-radius: 6px; border: 1px solid var(--panel-border); margin-bottom: 1rem; gap: 0.2rem;">
+          <button class="card-tab-btn active" data-tab="chart" style="flex: 1; background: transparent; border: none; color: var(--text-secondary); padding: 0.5rem; font-size: 0.85rem; font-weight: 600; border-radius: 4px; cursor: pointer; transition: all 0.2s ease;">📈 Gráfico / Chart</button>
+          <button class="card-tab-btn" data-tab="stats" style="flex: 1; background: transparent; border: none; color: var(--text-secondary); padding: 0.5rem; font-size: 0.85rem; font-weight: 600; border-radius: 4px; cursor: pointer; transition: all 0.2s ease;">📊 Estatísticas / Stats</button>
+        </div>
+
+        <!-- Tab 1: Chart & Breakpoints -->
+        <div class="card-tab-content active" data-tab="chart">
+          <div class="card-bp-config" style="display: flex; align-items: center; gap: 0.5rem; background: var(--panel-bg); padding: 0.5rem; border-radius: 8px; border: 1px solid var(--panel-border); margin-bottom: 1rem; flex-wrap: wrap;">
+            <label style="color: var(--text-secondary); font-size: 0.9rem; font-weight: 600;">Adjust BP1 (m):</label>
+            <input type="number" class="card-manual-bp1" step="0.1" placeholder="Auto" style="width: 80px; padding: 0.4rem; border-radius: 4px; border: 1px solid var(--panel-border); background: var(--bg-color); color: var(--text-primary); font-family: var(--font-family);">
+            <input type="range" class="card-manual-bp1-slider" step="0.5" style="flex: 1; min-width: 120px; accent-color: var(--accent);">
+            <button class="btn-secondary card-apply-bp1" style="padding: 0.4rem 0.8rem;">Apply</button>
+            <button class="btn-secondary card-reset-bp1" style="padding: 0.4rem 0.8rem; background: var(--panel-border);">Reset</button>
+          </div>
+
+          <div class="total-results-summary" style="display: flex; gap: 1.5rem; background: rgba(33, 150, 243, 0.1); padding: 1rem; border-radius: 8px; border: 1px solid rgba(33, 150, 243, 0.3); margin-bottom: 1rem; flex-wrap: wrap; justify-content: center;">
+            <!-- Populated by JS -->
+          </div>
+
+          <div class="card-cadence-section" style="background: rgba(105, 240, 174, 0.04); padding: 1rem; border-radius: 8px; border: 1px solid rgba(105, 240, 174, 0.2); margin-bottom: 1rem;">
+            <h4 style="margin: 0 0 0.8rem 0; font-size: 0.95rem; color: #69f0ae; display: flex; align-items: center; gap: 0.4rem; letter-spacing: 0.5px;">⏱️ CADÊNCIA (stroke/min) / STROKE RATE</h4>
+            <div class="cadence-inputs-grid" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(110px, 1fr)); gap: 0.8rem; align-items: center;">
+              <!-- Dynamically populated phase cadence inputs -->
+            </div>
+            <div class="cadence-result" style="margin-top: 0.8rem; padding-top: 0.8rem; border-top: 1px solid rgba(105, 240, 174, 0.15); display: flex; justify-content: space-between; align-items: center; font-size: 0.9rem;">
+              <span style="color: var(--text-secondary); font-weight: 600;">Cadência Média / Average Cadence:</span>
+              <strong style="color: #69f0ae; font-size: 1.1rem;" class="card-avg-cadence">- stroke/min</strong>
+            </div>
+          </div>
+          
+          <div class="chart-container">
+            <canvas class="pacing-chart"></canvas>
+          </div>
+
+          <div class="stats-container" style="margin-top: 1rem;">
+            <h3 style="font-size: 1.1rem; color: var(--accent); margin-bottom: 0.5rem;">Phase Breakpoints</h3>
+            <div class="table-responsive">
+              <table class="breakpoints-table">
+                <thead>
+                  <tr>
+                    <th>Phase</th>
+                    <th>Dist (m)</th>
+                    <th>Time (s)</th>
+                    <th>Vel (m/s)</th>
+                  </tr>
+                </thead>
+                <tbody></tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+
+        <!-- Tab 2: Segment Statistics -->
+        <div class="card-tab-content" data-tab="stats" style="display: none;">
+          <div class="stats-container">
+            <h3 style="font-size: 1.1rem; color: var(--accent); margin-bottom: 0.5rem;">Segment Statistics</h3>
+            <div class="table-responsive">
+              <table class="statistics-table">
+                <thead>
+                  <tr>
+                    <th>Phase</th>
+                    <th>Dist (m)</th>
+                    <th>Time (s)</th>
+                    <th>Mean Vel</th>
+                    <th>Min Vel</th>
+                    <th>Max Vel</th>
+                    <th>Range (Abs)</th>
+                    <th>Range (%)</th>
+                    <th>Var Coef (%)</th>
+                    <th>Incl (Abs)</th>
+                    <th>Incl (%)</th>
+                    <th>Cadência / Cadence (spm)</th>
+                  </tr>
+                </thead>
+                <tbody></tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      </div>
+    </template>
+
+    <script type="module" src="./main.js?v=2"></script>
+  </body>
+</html>

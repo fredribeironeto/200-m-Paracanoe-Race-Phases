@@ -1,0 +1,56 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+share/
+python-wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+MANIFEST
+
+# Virtual Environment
+backend/venv/
+backend/.venv/
+venv/
+.venv/
+env/
+.env
+
+# Database (SQLite)
+backend/database.db
+*.db
+*.sqlite
+*.sqlite3
+
+# IDEs and Editors
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS files
+Thumbs.db
+db.properties
+desktop.ini
+.DS_Store
+
+# Data files (Garmin/Polar tests containing athlete metrics)
+CSV/
+*.csv
+*.xlsx
+*.xls
